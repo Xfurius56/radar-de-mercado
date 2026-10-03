@@ -302,7 +302,7 @@ def render() -> None:
                     old = update_product(selected["id"], values)
                     if old:
                         triggered = check_product_update(selected["id"], old, values)
-                        st.success("Ficha actualizada. La fuente y las fechas quedan en el historial local de la ficha.")
+                        st.success("Ficha actualizada. La fuente y las fechas quedan en el historial privado de tu cuenta.")
                         for detail in triggered:
                             st.warning(detail)
                 else:

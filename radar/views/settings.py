@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from radar.config import ROOT, source_info
+from radar.auth import clear_user_workspace
+from radar.config import source_info
 from radar.db import clear_user_data, get_all_settings, set_setting, source_statuses
 from radar.ui import date_label
 
@@ -28,7 +29,7 @@ def render() -> None:
     if saved:
         for key, value in (("country", country), ("currency", currency), ("source_language", language), ("refresh_frequency", frequency)):
             set_setting(key, value)
-        st.success("Preferencias guardadas en la base de datos local.")
+        st.success("Preferencias guardadas en tu cuenta.")
     st.caption("La frecuencia expresa cuándo quieres revisar. Streamlit no ejecuta tareas en segundo plano ni consulta el mercado automáticamente. La moneda preferida no convierte importes entre divisas; cada cifra conserva la moneda que declara la fuente.")
     st.caption("El idioma se guarda como preferencia. El conector de Alpha Vantage usado aquí no filtra los resultados de noticias por idioma.")
 
@@ -38,7 +39,7 @@ def render() -> None:
         status = statuses.get(source["name"], {})
         configured = bool(source["configured"])
         with st.container(border=True):
-            access_label = "datos locales/manuales" if source["name"] == "Investigación de productos" else ("credencial detectada" if configured else "sin credencial")
+            access_label = "fichas manuales de tu cuenta" if source["name"] == "Investigación de productos" else ("credencial detectada" if configured else "sin credencial")
             st.markdown(f"**{source['name']}** · {access_label}")
             st.write(source["use"])
             shown_state = status.get("state", "sin consultar") if configured or source["name"] == "Investigación de productos" else "requiere configuración en este entorno"
@@ -49,15 +50,16 @@ def render() -> None:
                 st.markdown(f"[Documentación oficial]({source['url']})")
 
     st.subheader("Configurar claves")
-    st.write("Crea un archivo **.env** en la carpeta del proyecto a partir de **.env.example** y añade tus claves allí. No las pegues en esta página: la app comprueba si existen, pero no las muestra ni las almacena en SQLite.")
-    st.code("ALPHAVANTAGE_API_KEY=tu_clave\nCOINGECKO_API_KEY=tu_clave_demo\nOPENAI_API_KEY=tu_clave\nOPENAI_MODEL=gpt-5", language="text")
-    st.caption(f"Los datos locales se guardan en {ROOT / 'data' / 'radar.db'}; las claves permanecen en variables de entorno o en el archivo local .env.")
+    st.write("En Streamlit Cloud, administra las claves desde **Manage app → Settings → Secrets**. No pegues secretos en una ficha, chat o repositorio público. Usa la clave publicable de Supabase junto con RLS; nunca pongas la clave `service_role` aquí.")
+    st.code('SUPABASE_URL = "https://tu-proyecto.supabase.co"\nSUPABASE_ANON_KEY = "tu-clave-publicable"\nOPENAI_API_KEY = "tu-clave-de-openai"\nOPENAI_MODEL = "gpt-5"\nOPENAI_VISION_MODEL = "gpt-5"', language="toml")
+    st.caption("Las cotizaciones de Alpha Vantage y CoinGecko siguen siendo opcionales y se configuran en los secretos con sus nombres terminados en _API_KEY.")
 
-    st.subheader("Borrar datos locales")
-    st.write("Esto borra productos, listas, alertas, carteras simuladas, operaciones, progreso de lecciones y preferencias guardadas en SQLite. No elimina el archivo .env.")
-    confirmed = st.checkbox("Entiendo que se eliminarán los datos guardados de la app", key="confirm_delete_local")
-    if st.button("Borrar datos locales", type="secondary", disabled=not confirmed):
+    st.subheader("Eliminar tus datos")
+    st.write("Esto elimina las fichas, listas, alertas, carteras simuladas, progreso, preferencias y resultados de análisis asociados a tu cuenta.")
+    confirmed = st.checkbox("Entiendo que se eliminarán los datos guardados en mi cuenta", key="confirm_delete_local")
+    if st.button("Eliminar mis datos", type="secondary", disabled=not confirmed):
         clear_user_data()
-        st.session_state.clear()
-        st.success("Se han borrado los datos locales de la app.")
+        clear_user_workspace()
+        st.session_state.pop("confirm_delete_local", None)
+        st.success("Se han eliminado los datos de tu cuenta.")
         st.rerun()

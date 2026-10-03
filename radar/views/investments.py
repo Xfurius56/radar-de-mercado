@@ -60,7 +60,7 @@ def _save_profile() -> None:
                            ("investor_classes", ",".join(selected_classes))):
             set_setting(key, value)
         st.session_state["investor_profile_complete"] = bool(country.strip() and selected_classes)
-        st.success("Perfil guardado localmente. Puedes editarlo o borrarlo en Configuración.")
+        st.success("Perfil guardado en tu cuenta. Puedes editarlo o borrarlo en Configuración.")
         st.rerun()
 
 

@@ -44,7 +44,7 @@ def render() -> None:
         })
     rows.append({
         "Fuente": "Productos",
-        "Acceso": "Datos locales/manuales",
+        "Acceso": "Fichas manuales de tu cuenta",
         "Estado": "Disponible",
         "Última consulta correcta": "al guardar cada ficha",
         "Detalle": "La demanda, los precios y el proveedor deben tener una fuente indicada por quien los registra.",

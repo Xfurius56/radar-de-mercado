@@ -8,7 +8,7 @@ from radar.lessons import LESSONS
 
 def render() -> None:
     st.title("Lecciones y aprendizaje")
-    st.write("Módulos progresivos con ejemplos ficticios. El avance se guarda en la base de datos local de este proyecto.")
+    st.write("Módulos progresivos con ejemplos ficticios. Tu avance se guarda en tu cuenta.")
     progress = lessons_progress()
     completed_count = sum(bool(row.get("completed")) for row in progress.values())
     st.progress(completed_count / len(LESSONS) if LESSONS else 0)

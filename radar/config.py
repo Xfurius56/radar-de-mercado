@@ -6,13 +6,18 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "radar.db"
 load_dotenv(ROOT / ".env")
 
 
 def env_value(name: str, default: str = "") -> str:
-    return os.getenv(name, default).strip()
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+    try:
+        value = str(__import__("streamlit").secrets.get(name, "")).strip()
+    except Exception:
+        value = ""
+    return value or default
 
 
 def source_keys() -> dict[str, bool]:
@@ -20,6 +25,7 @@ def source_keys() -> dict[str, bool]:
         "Alpha Vantage": bool(env_value("ALPHAVANTAGE_API_KEY")),
         "CoinGecko": bool(env_value("COINGECKO_API_KEY")),
         "OpenAI": bool(env_value("OPENAI_API_KEY")),
+        "Supabase": bool(env_value("SUPABASE_URL") and env_value("SUPABASE_ANON_KEY")),
     }
 
 
@@ -41,8 +47,14 @@ def source_info() -> list[dict[str, str | bool]]:
         {
             "name": "OpenAI API",
             "configured": keys["OpenAI"],
-            "use": "Asistente de explicación contextual basado en los datos visibles en la app.",
+            "use": "Asistente contextual y análisis educativo de imágenes; la búsqueda web es opcional.",
             "url": "https://platform.openai.com/docs/quickstart",
+        },
+        {
+            "name": "Supabase Auth + PostgreSQL",
+            "configured": keys["Supabase"],
+            "use": "Inicio de sesión y almacenamiento persistente con aislamiento de filas por usuario (RLS).",
+            "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
         },
         {
             "name": "Investigación de productos",

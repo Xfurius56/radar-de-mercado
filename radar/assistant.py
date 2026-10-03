@@ -64,5 +64,5 @@ def demo_answer(question: str, context: str) -> str:
             "este modo ofrece explicaciones educativas predefinidas y no consulta Internet ni inventa cotizaciones, proveedores o tendencias."
         )
     if context.strip():
-        core += "\n\nHay contexto local disponible, pero el modo de demostración no genera un análisis automático sobre él. Revisa en la pantalla las fuentes y fechas originales."
+        core += "\n\nHay contexto de tu cuenta disponible, pero el modo de demostración no genera un análisis automático sobre él. Revisa en la pantalla las fuentes y fechas originales."
     return core

@@ -178,25 +178,33 @@ create table if not exists public.image_analyses (
 
 -- Row Level Security protege también ante una consulta mal filtrada en la aplicación.
 do $$
-declare table_name text;
+declare target_table text;
         sequence_name text;
 begin
-    foreach table_name in array array[
+    foreach target_table in array array[
         'settings', 'source_status', 'products', 'watchlist', 'asset_observations',
         'product_observations', 'alerts', 'portfolios', 'sim_trades',
         'portfolio_marks', 'lesson_progress', 'image_analyses'
     ] loop
-        execute format('alter table public.%I enable row level security', table_name);
-        execute format('revoke all on table public.%I from anon, public', table_name);
-        execute format('grant select, insert, update, delete on table public.%I to authenticated', table_name);
-        execute format('drop policy if exists user_owns_rows on public.%I', table_name);
+        execute format('alter table public.%I enable row level security', target_table);
+        execute format('revoke all on table public.%I from anon, public', target_table);
+        execute format('grant select, insert, update, delete on table public.%I to authenticated', target_table);
+        execute format('drop policy if exists user_owns_rows on public.%I', target_table);
         execute format(
             'create policy user_owns_rows on public.%I for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)',
-            table_name
+            target_table
         );
-        sequence_name := pg_get_serial_sequence(format('public.%I', table_name), 'id');
-        if sequence_name is not null then
-            execute format('grant usage, select on sequence %s to authenticated', sequence_name);
+        if exists (
+            select 1
+            from information_schema.columns c
+            where c.table_schema = 'public'
+              and c.table_name = target_table
+              and c.column_name = 'id'
+        ) then
+            sequence_name := pg_get_serial_sequence(format('public.%I', target_table), 'id');
+            if sequence_name is not null then
+                execute format('grant usage, select on sequence %s to authenticated', sequence_name);
+            end if;
         end if;
     end loop;
 end $$;

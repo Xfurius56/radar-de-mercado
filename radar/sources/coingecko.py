@@ -14,7 +14,7 @@ BASE_URL = "https://api.coingecko.com/api/v3"
 def _get(path: str, params: dict[str, Any] | None = None) -> Any:
     api_key = env_value("COINGECKO_API_KEY")
     if not api_key:
-        raise SourceError("Falta COINGECKO_API_KEY en el archivo .env.")
+        raise SourceError("Falta COINGECKO_API_KEY en los secretos de Streamlit o en las variables de entorno.")
     try:
         response = requests.get(
             f"{BASE_URL}{path}",

@@ -17,7 +17,7 @@ class SourceError(RuntimeError):
 def _request(params: dict[str, str]) -> dict[str, Any]:
     api_key = env_value("ALPHAVANTAGE_API_KEY")
     if not api_key:
-        raise SourceError("Falta ALPHAVANTAGE_API_KEY en el archivo .env.")
+        raise SourceError("Falta ALPHAVANTAGE_API_KEY en los secretos de Streamlit o en las variables de entorno.")
     query = {**params, "apikey": api_key}
     try:
         response = requests.get(BASE_URL, params=query, timeout=20)

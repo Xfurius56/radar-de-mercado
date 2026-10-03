@@ -1,116 +1,59 @@
 # Radar de Mercado
 
-Aplicación educativa en español para investigar fichas de productos de dropshipping y estudiar activos financieros con cotizaciones e históricos consultados manualmente. Está creada con Python, Streamlit y SQLite. No ejecuta órdenes, no se conecta a brókeres y no promete resultados.
+Aplicación en español para investigación educativa de productos de dropshipping y activos financieros. Incluye registros privados por cuenta, simulación manual y análisis opcional de imágenes con IA. No ejecuta órdenes, no vigila mercados en segundo plano, no verifica por sí sola la demanda de un producto y no ofrece recomendaciones financieras personalizadas.
 
-## Instalación
+## Arquitectura de datos y cuentas
 
-Requiere Python 3.11 o posterior.
+- **Supabase Auth** gestiona registro, inicio de sesión y verificación de correo.
+- **Supabase PostgreSQL** guarda productos, preferencias, alertas, carteras simuladas, progreso y resultados de imágenes.
+- Cada fila tiene un `user_id`; Row Level Security (RLS) limita cada operación a la cuenta autenticada. El servicio usa la clave publicable junto con la sesión de Auth; no requiere la clave `service_role`.
+- La app no ofrece cuentas anónimas. Si faltan las credenciales de Supabase, muestra la pantalla de configuración y no abre datos compartidos.
+- Las fotos originales se procesan en memoria, se optimizan y se envían a OpenAI solo al pulsar **Analizar imagen**. Radar guarda el texto del análisis y el nombre del archivo, no la imagen.
 
-En Windows, abre PowerShell en la carpeta del proyecto:
+## Configuración para publicar
 
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-Copy-Item .env.example .env
-streamlit run app.py
-```
+1. Crea un proyecto en Supabase y ejecuta `database/schema.sql` completo en **SQL Editor**. El archivo crea las tablas y políticas RLS usadas por la app.
+2. En la configuración API del proyecto, obtén la **Project URL** y su clave publicable (`anon`/publishable). No uses la clave `service_role`.
+3. En **Authentication → Providers**, habilita correo y contraseña. Mantén activa la verificación de correo. En URL Configuration, establece la URL de Radar como `Site URL` y añade esa misma dirección a las URL permitidas para redirección.
+4. En Streamlit Community Cloud, abre **Manage app → Settings → Secrets** y guarda:
 
-En macOS o Linux:
+   ```toml
+   SUPABASE_URL = "https://tu-proyecto.supabase.co"
+   SUPABASE_ANON_KEY = "tu-clave-publicable"
+   OPENAI_API_KEY = "tu-clave-de-openai"
+   OPENAI_MODEL = "gpt-5"
+   OPENAI_VISION_MODEL = "gpt-5"
+   ALPHAVANTAGE_API_KEY = ""
+   COINGECKO_API_KEY = ""
+   ```
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
-streamlit run app.py
-```
+   `OPENAI_API_KEY` habilita tanto el asistente como el análisis visual. Alpha Vantage y CoinGecko son opcionales. No copies secretos al repositorio ni los compartas en el chat.
+5. Reinicia la app. Cada persona crea su cuenta con su correo, confirma el mensaje recibido e inicia sesión.
 
-La aplicación se abrirá en la dirección local que Streamlit muestre en la terminal. Para detenerla, usa `Ctrl+C`.
+Para ejecutar localmente, instala las dependencias de `requirements.txt`, copia `.env.example` a `.env`, rellena las claves de prueba y ejecuta `python -m streamlit run app.py`. Nunca subas `.env`.
 
-## Configurar fuentes
+## Analizar una imagen
 
-Edita el archivo `.env` que has creado. Las claves solo se leen desde variables de entorno o ese archivo local; no se guardan en SQLite ni se muestran en la interfaz.
+En **Analizar imágenes**, elige **Dropshipping** o **Trading**, sube una imagen JPG, PNG o WebP de hasta 8 MB y confirma el envío a OpenAI.
 
-```text
-ALPHAVANTAGE_API_KEY=tu_clave
-COINGECKO_API_KEY=tu_clave_demo
-OPENAI_API_KEY=tu_clave
-OPENAI_MODEL=gpt-5
-```
+- **Dropshipping:** describe atributos visibles y propone qué validar con una muestra, proveedor, costes, entregas, devoluciones, demanda documentada y competencia. Una foto no demuestra ventas, demanda, precio, autenticidad ni derechos de uso.
+- **Trading:** resume solo lo que resulte legible en una captura de gráfico y señala qué datos faltan. La captura puede estar desactualizada o incompleta; el análisis no predice el precio ni indica comprar o vender.
 
-- **Alpha Vantage**: crea una clave y consulta [su documentación oficial](https://www.alphavantage.co/documentation/). Se usa para cotizaciones de acciones/ETF, históricos diarios, ficha fundamental y noticias. La cotización disponible depende del plan y puede ser diaria, retrasada o limitada; la aplicación muestra la fecha que devuelve el proveedor. Las consultas de fundamentales y noticias son opcionales. Respeta el plan y los términos de uso de tu cuenta.
-- **CoinGecko**: crea una clave Demo y sigue [la documentación oficial](https://docs.coingecko.com/). Se usa para precio, capitalización, volumen e histórico de criptoactivos. En el buscador se introduce el ID de CoinGecko, por ejemplo `bitcoin` o `ethereum`; la app envía la clave como encabezado HTTP y no la muestra.
-- **OpenAI API**: crea una clave y sigue [la guía oficial](https://platform.openai.com/docs/quickstart). El asistente envía la pregunta y el contexto visible de la app cuando tú la envías. Se solicita `store=False`; revisa la configuración y condiciones de tu cuenta antes de usar datos sensibles. Si no hay clave, funciona un modo de demostración explícito con explicaciones predefinidas, sin precios ni búsqueda en Internet.
+La búsqueda web es opcional y puede aumentar el coste de OpenAI. Cada cuenta tiene un límite de cinco intentos por periodo móvil de 24 horas; para controlar el gasto total, configura también alertas o límites de uso en la cuenta de API del administrador.
 
-Reinicia Streamlit después de editar `.env`. En **Configuración** puedes ver qué credenciales se detectaron, el estado de las últimas consultas y la hora de la última respuesta correcta. La app no comprueba la validez de una clave hasta que consultas el servicio.
+El archivo se convierte a una imagen JPEG optimizada y se descartan metadatos de orientación antes del envío. La imagen no se guarda; Radar conserva el resultado con un nombre genérico en tu cuenta y puedes borrarlo desde el historial. No subas identificaciones, datos personales, material privado ni imágenes que no tengas permiso para utilizar. El proveedor de IA procesa la imagen conforme a las condiciones de la cuenta de API configurada.
 
-## Funciones que usan datos reales
+## Funciones y límites
 
-Con una fuente y credencial configuradas, una consulta manual puede traer:
+- **Productos:** altas y edición manual, favoritos, comparación, CSV, histórico de anotaciones y cálculo aproximado de margen. No hay catálogo de proveedores, verificación automatizada de tendencias ni datos de ventas.
+- **Activos:** acciones y ETF mediante Alpha Vantage y criptomonedas mediante CoinGecko, si las claves y planes respectivos permiten la consulta. La frecuencia es manual y los datos pueden venir retrasados o limitados.
+- **Cartera virtual:** registros simulados manualmente; no hay conexión a un bróker ni órdenes reales.
+- **Alertas:** se revisan al consultar datos o pulsar la acción correspondiente; no hay vigilancia continua ni avisos en segundo plano.
+- **Asistente:** las preguntas y el contexto elegido se envían a OpenAI cuando se consulta. Las respuestas pueden equivocarse; comprueba las fuentes y fechas.
+- **Imágenes:** el análisis visual es orientativo. La demanda, los precios, los indicadores y las condiciones del proveedor requieren evidencia actual por separado.
 
-- Acciones y ETF: cotización de Alpha Vantage, hasta 100 observaciones diarias, volumen histórico y, si lo solicitas, fundamentals y noticias con enlaces y fecha.
-- Criptoactivos: precio, variación, capitalización, volumen e histórico de CoinGecko.
-- Alertas de activo: se evalúan cuando consultas la cotización o pulsas **Revisar alertas de activos en seguimiento**. Las alertas de noticias se revisan cuando se consulta esa fuente.
-- Asistente conectado: explica los datos que se pasan desde la pantalla. Puede equivocarse; conserva los enlaces originales para verificarlos.
+Antes de abrir el servicio a clientes o cobrar por él, completa una política de privacidad y condiciones de uso adecuadas a tu actividad, verifica los costes y límites de Supabase/OpenAI y prueba el alta, la verificación de correo y la separación de cuentas con dos usuarios distintos. La plantilla técnica no sustituye una revisión legal ni una auditoría de seguridad independiente.
 
-El botón de consulta es manual. La aplicación no ofrece datos de alta frecuencia, no programa tareas en segundo plano ni envía notificaciones fuera de la sesión. Límites, cobertura y retraso dependen de la cuenta y de los términos de cada fuente.
+## Protección de secretos
 
-## Funciones locales o manuales
-
-- **Productos**: alta, edición, favoritos, comparación, importación CSV, puntuación ajustable y calculadora de margen. Costes, demanda, competencia, calidad y plazo se consideran datos introducidos por ti o importados; no hay catálogo de proveedores, Google Trends, comparador de precios ni estimación automática de demanda conectados. Añade el enlace y la fecha de cada evidencia.
-- **Cálculo económico**: resta coste de producto, envío, comisión porcentual, impuesto estimado, reserva por devoluciones y publicidad por pedido. Ventas de equilibrio = presupuesto fijo de campaña dividido por la contribución por pedido antes de ese presupuesto. Es una aproximación: solo incluye los conceptos que introduzcas.
-- **Puntuación de producto**: ordena fichas con los pesos visibles de margen, demanda documentada, saturación anotada y entrega. Omite los factores sin datos y aplica penalizaciones visibles por fragilidad o riesgo de marca. No estima ventas.
-- **Evolución manual de producto**: cada vez que guardas cambios se registra precio, margen, señal de demanda, competencia y costes. Los gráficos muestran tus anotaciones; no detectan tendencias ni estacionalidad del mercado automáticamente.
-- **Cartera virtual**: saldo ficticio, compras y ventas manuales simuladas, valoración manual o consulta de precios compatibles. Una moneda diferente no se convierte automáticamente. La referencia SPY solo se obtiene automáticamente para cartera USD; también se puede aportar una marca manual. La comparación no ajusta por efectivo, riesgo, fiscalidad ni dividendos.
-- **Estrategia histórica**: cruce de medias rápidas/lentas aplicado desde la sesión siguiente a la señal; usa hasta 100 sesiones diarias de Alpha Vantage o un CSV aportado. No incluye dividendos, deslizamiento, impacto de mercado, impuestos ni ejecución parcial. Resultados pasados no predicen resultados futuros.
-- **Aprendizaje**: lecciones, cuestionarios y progreso guardados localmente.
-- **Bonos**: no hay integración de precios de bonos en esta versión; se señala en la pantalla.
-
-## CSV de productos
-
-En **Productos → Importar CSV** puedes descargar una plantilla. La columna `name` es obligatoria. Las columnas disponibles son `name`, `category`, `country`, `currency`, `provider`, `provider_url`, `source_url`, `product_cost`, `shipping_cost`, `ad_cost`, `platform_fee_pct`, `tax_pct`, `refund_pct`, `sale_price`, `launch_budget`, `delivery_days`, `supplier_quality`, `demand_score`, `demand_source`, `demand_updated`, `competition_score`, `fragile`, `brand_risk` y `notes`.
-
-Para el histórico de estrategia, carga CSV con columnas `date` y `close`; se aceptan columnas adicionales, que no se usan en este cálculo.
-
-## Datos locales y privacidad
-
-Las fichas, preferencias, carteras, historial simulado, alertas y avance se guardan en `data/radar.db` (SQLite) dentro del proyecto. Ese archivo se crea al iniciar la app y está excluido del control de versiones por `.gitignore`. No se sincroniza automáticamente con otros dispositivos. **Configuración → Borrar datos locales** elimina los registros de la app; no borra `.env`.
-
-No guardes información personal innecesaria, claves, contraseñas ni datos financieros identificables. Si activas OpenAI, la pregunta y el resumen de datos visibles se envían a la API cuando consultas el asistente.
-
-El idioma preferido se guarda como configuración, pero la fuente de noticias configurada no expone un filtro de idioma en este conector.
-
-## Estructura
-
-```text
-app.py
-radar/
-  config.py
-  db.py
-  scoring.py
-  alerts.py
-  assistant.py
-  lessons.py
-  sources/
-    alpha_vantage.py
-    coingecko.py
-  views/
-    home.py
-    products.py
-    investments.py
-    simulator.py
-    alerts.py
-    learning.py
-    assistant.py
-    settings.py
-data/              # se crea al iniciar; SQLite local
-.env.example       # plantilla sin credenciales reales
-requirements.txt
-```
-
-## Límites educativos
-
-El análisis muestra datos disponibles, supuestos y campos ausentes. Una cotización, métrica histórica, índice de revisión o alerta no es una señal de compra o venta. Revisa las condiciones del servicio, comisiones, impuestos y normativa aplicables a tu país antes de tomar decisiones.
+`.env`, `data/*.db`, `.streamlit/secrets.toml` y archivos temporales están excluidos por `.gitignore`. El acceso a la base se realiza con la clave publicable y el token de la cuenta autenticada; las políticas RLS del esquema son obligatorias para la privacidad.

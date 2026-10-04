@@ -274,3 +274,22 @@ def render() -> None:
             remove_watch(remove_id)
             st.rerun()
         st.caption("Cada fila usa la última observación consultada manualmente. Los candidatos sin observación muestran datos vacíos; ordenar por un criterio no evalúa idoneidad ni rentabilidad futura.")
+
+
+    if results:
+        st.subheader("Evolución histórica y medias móviles")
+        for result in reversed(results):
+            history_rows = result.get("history", [])
+            chart = pd.DataFrame(history_rows)
+            if chart.empty or not {"date", "close"}.issubset(chart.columns):
+                continue
+            chart["date"] = pd.to_datetime(chart["date"], errors="coerce")
+            chart["close"] = pd.to_numeric(chart["close"], errors="coerce")
+            chart = chart.dropna(subset=["date", "close"]).sort_values("date").set_index("date")
+            if chart.empty:
+                continue
+            chart["Media de 20 observaciones"] = chart["close"].rolling(20, min_periods=20).mean()
+            chart["Media de 50 observaciones"] = chart["close"].rolling(50, min_periods=50).mean()
+            with st.expander(f"{result['symbol']} · gráfico técnico descriptivo"):
+                st.line_chart(chart[["close", "Media de 20 observaciones", "Media de 50 observaciones"]].rename(columns={"close": "Precio de cierre"}), use_container_width=True)
+                st.caption("Las medias describen observaciones pasadas: dependen de la frecuencia y cobertura del proveedor y no predicen precios ni indican por sí solas comprar o vender.")

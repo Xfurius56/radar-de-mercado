@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import threading
+import time
 from typing import Any
 
 import requests
@@ -8,6 +10,9 @@ import requests
 from radar.config import env_value
 
 BASE_URL = "https://www.alphavantage.co/query"
+_REQUEST_INTERVAL_SECONDS = 1.1
+_REQUEST_LOCK = threading.Lock()
+_LAST_REQUEST_STARTED = 0.0
 
 
 class SourceError(RuntimeError):
@@ -15,21 +20,31 @@ class SourceError(RuntimeError):
 
 
 def _request(params: dict[str, str]) -> dict[str, Any]:
+    global _LAST_REQUEST_STARTED
+
     api_key = env_value("ALPHAVANTAGE_API_KEY")
     if not api_key:
         raise SourceError("Falta ALPHAVANTAGE_API_KEY en los secretos de Streamlit o en las variables de entorno.")
     query = {**params, "apikey": api_key}
-    try:
-        response = requests.get(BASE_URL, params=query, timeout=20)
-        response.raise_for_status()
-        payload = response.json()
-    except requests.HTTPError as exc:
-        status = exc.response.status_code if exc.response is not None else "desconocido"
-        raise SourceError(f"Alpha Vantage respondió con estado HTTP {status}; revisa acceso y límites de la cuenta.") from exc
-    except requests.RequestException as exc:
-        raise SourceError(f"No se pudo contactar con Alpha Vantage ({type(exc).__name__}).") from exc
-    except ValueError as exc:
-        raise SourceError("Alpha Vantage devolvió una respuesta que no es JSON válido.") from exc
+    # The free Alpha Vantage endpoint can reject calls made less than a second apart.
+    # Serialize requests in this process so concurrent Streamlit sessions share the throttle.
+    with _REQUEST_LOCK:
+        elapsed = time.monotonic() - _LAST_REQUEST_STARTED
+        wait_seconds = _REQUEST_INTERVAL_SECONDS - elapsed
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+        _LAST_REQUEST_STARTED = time.monotonic()
+        try:
+            response = requests.get(BASE_URL, params=query, timeout=20)
+            response.raise_for_status()
+            payload = response.json()
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else "desconocido"
+            raise SourceError(f"Alpha Vantage respondió con estado HTTP {status}; revisa acceso y límites de la cuenta.") from exc
+        except requests.RequestException as exc:
+            raise SourceError(f"No se pudo contactar con Alpha Vantage ({type(exc).__name__}).") from exc
+        except ValueError as exc:
+            raise SourceError("Alpha Vantage devolvió una respuesta que no es JSON válido.") from exc
     if not isinstance(payload, dict):
         raise SourceError("Formato de respuesta no reconocido de Alpha Vantage.")
     for key in ("Error Message", "Note", "Information"):

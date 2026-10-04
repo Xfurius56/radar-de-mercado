@@ -10,6 +10,7 @@ from radar.alerts import check_product_update
 from radar.db import add_product, get_setting, list_products, product_history, toggle_product_favorite, update_product
 from radar.scoring import product_economics, product_score
 from radar.ui import money, percent
+from radar.views.image_analysis import render as render_image_analysis
 
 CSV_COLUMNS = [
     "name", "category", "country", "currency", "provider", "provider_url", "source_url",
@@ -338,3 +339,7 @@ def render() -> None:
         upload = st.file_uploader("Elegir un CSV", type=["csv"], key="product_csv")
         if upload and st.button("Importar fichas", key="import_products"):
             _import_csv(upload)
+
+
+    with st.expander("Analizar foto y mercado del producto", expanded=False):
+        render_image_analysis(mode_override="Dropshipping", embedded=True)

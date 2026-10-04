@@ -18,9 +18,10 @@ if not require_authenticated_user():
     st.stop()
 
 with st.sidebar:
-    st.title("🧭 Radar")
-    st.caption("Espacio privado · investigación educativa")
+    st.markdown("## 🧭 Radar")
+    st.caption("MERCADO · INVESTIGACIÓN EDUCATIVA")
     st.caption(st.session_state.get("_radar_user_email", "Cuenta autenticada"))
+    st.markdown("**MÓDULOS**")
     page = st.radio(
         "Navegación",
         ["Inicio", "Productos", "Inversiones", "Simulador", "Alertas", "Analizar imágenes", "Aprender", "Asistente", "Configuración"],
